@@ -86,10 +86,10 @@ ui <- fluidPage(
   
   # Key indicators with spinners
   fluidRow(
-    column(3, withSpinner(uiOutput("entriesBox"), size = 0.5)),
-    column(3, withSpinner(uiOutput("exitsBox"), size = 0.5)),
-    column(3, withSpinner(uiOutput("youthBox"), size = 0.5)),
-    column(3, withSpinner(uiOutput("offersBox"), size = 0.5))
+    column(3, withSpinner(uiOutput("entriesBox"), size = 1)),
+    column(3, withSpinner(uiOutput("exitsBox"), size = 1)),
+    column(3, withSpinner(uiOutput("youthBox"), size = 1)),
+    column(3, withSpinner(uiOutput("offersBox"), size = 1))
   ),
   br(),
   # Interactive plots with spinners
