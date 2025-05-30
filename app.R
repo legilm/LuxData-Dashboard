@@ -7,6 +7,7 @@ library(ggplot2)
 library(DT)
 library(shinycssloaders)  # For loading spinners
 library(plotly)           # For interactive plots
+library(shinyWidgets)
 
 # Source the database connection function
 source("connect_db.R")
@@ -15,7 +16,7 @@ source("connect_db.R")
 schema <- "student_gilmar"
 
 # Helper for valueBox
-valueBox <- function(value, subtitle, color = "primary") {
+valueBox <- function(value, subtitle, color = "primary", text_color = "white") {
   color_map <- list(
     "primary" = "#007bff",
     "success" = "#28a745", 
@@ -36,9 +37,10 @@ ui <- fluidPage(
   theme = bs_theme(bootswatch = "minty"),
   tags$head(
     tags$style(HTML("
-      .container-fluid { max-width: 1800px; }
+      .container-fluid { max-width: 1600px; }
     "))
   ),
+  br(),
   titlePanel("ADEM's Key Employment Figures Dashboard"),
   
   # Description below the title
@@ -48,43 +50,35 @@ ui <- fluidPage(
   ),
   
   # Date filter and reload button
-  div(
-    style = "background: white; 
-           border: 2px solid #e9ecef; 
-           border-radius: 12px; 
-           padding: 20px; 
-           margin-bottom: 25px;
-           box-shadow: 0 1px 3px rgba(0,0,0,0.05);",
-    fluidRow(
-      column(
-        5,
-        dateRangeInput(
-          "daterange", 
-          label = tags$div(
-            style = "color: #6c757d; font-weight: 600; margin-bottom: 8px;",
-            "📅 Date Range"
-          ),
-          start = Sys.Date() - 365, 
-          end = Sys.Date(),
-          format = "mm-yyyy", 
-          width = "100%"
-        )
+  fluidRow(
+    column(
+      12,
+      airMonthpickerInput(
+        inputId = "month_range",
+        label = tags$div("📅 Month Range"),
+        range = TRUE,
+        value = c(
+          format(as.Date(Sys.Date()) - 365, "%Y-%m"),
+          format(as.Date(Sys.Date()), "%Y-%m")
+        ),
+        minDate = "2009-01",
+        maxDate = format(as.Date(Sys.Date()), "%Y-%m"),
+        width = "20%",
+        autoClose = TRUE
       ),
-      column(
-        3,
-        br(),
-        actionButton(
-          "reload_dates", 
-          "Update Dashboard", 
-          icon = icon("sync-alt"),
-          style = "background: #007bff; 
-                 color: white; 
-                 border: none; 
-                 border-radius: 8px; 
-                 padding: 10px 20px; 
-                 font-weight: 500;
-                 box-shadow: 0 2px 4px rgba(0,123,255,0.3);"
-        )
+      br(),
+      actionButton(
+        "reload_dates", 
+        "Update dates on Dashboard", 
+        icon = icon("sync-alt"),
+        style = "background: #007bff; 
+               color: white; 
+               border: none; 
+               border-radius: 8px; 
+               padding: 10px 20px; 
+               font-weight: 500;
+               box-shadow: 0 2px 4px rgba(0,123,255,0.3);
+               margin-top: 10px;"
       )
     )
   ),
@@ -97,15 +91,21 @@ ui <- fluidPage(
     column(3, withSpinner(uiOutput("youthBox"), size = 0.5)),
     column(3, withSpinner(uiOutput("offersBox"), size = 0.5))
   ),
-  
   br(),
   # Interactive plots with spinners
   tabsetPanel(
-    tabPanel("Unemployment Trend", withSpinner(plotlyOutput("unempTrendPlot", height = "500px", width = "100%"), size = 0.5)),
-    tabPanel("Youth Unemployment", withSpinner(plotlyOutput("youthPlot", height = "500px", width = "100%"), size = 0.5)),
-    tabPanel("Job Offers", withSpinner(plotlyOutput("offersPlot", height = "500px", width = "100%"), size = 0.5)),
-    tabPanel("By Age Group", withSpinner(plotlyOutput("ageBar", height = "500px", width = "100%"), size = 0.5)),
-    tabPanel("Raw Data", withSpinner(DT::dataTableOutput("rawTable"), size = 0.5))
+    tabPanel("Unemployment Trend", withSpinner(plotlyOutput("unempTrendPlot", height = "500px", width = "100%"), size = 1)),
+    tabPanel("Youth Unemployment", withSpinner(plotlyOutput("youthPlot", height = "500px", width = "100%"), size = 1)),
+    tabPanel("Job Offers", withSpinner(plotlyOutput("offersPlot", height = "500px", width = "100%"), size = 1)),
+    tabPanel("By Age Group", withSpinner(plotlyOutput("ageBar", height = "500px", width = "100%"), size = 1)),
+    tabPanel("Raw Data", withSpinner(DT::dataTableOutput("rawTable"), size = 1))
+  ),
+  br(),
+  # Footer
+  tags$footer(
+    style = "margin-top: 40px; padding: 18px 0; background: #f8f9fa; color: #333; text-align: center; font-size: 1em; border-top: 1px solid #e0e0e0;",
+    HTML('Made by Gil during the Module 6: Business Applications of R, on the Full Stack in R Dev course at Digital Learning Hub at Belval - Luxembourg. <br>
+          <a href="https://github.com/legilm" target="_blank" style="color: #007bff; text-decoration: underline;">https://github.com/legilm</a>')
   )
 )
 
@@ -151,9 +151,11 @@ server <- function(input, output, session) {
     }
   }, once = TRUE)
   
-  # Update active dates when reload button is clicked
   observeEvent(input$reload_dates, {
-    active_dates(input$daterange)
+    # input$month_range retorna c("2023-05", "2024-05")
+    # Converta para o formato Date se necessário
+    dr <- as.Date(paste0(input$month_range, "-01"))
+    active_dates(dr)
   })
   
   # Total Entries
@@ -248,7 +250,7 @@ server <- function(input, output, session) {
         geom_line(aes(y = entries, color = "Entries"), size = 1.2) +
         geom_line(aes(y = exits, color = "Exits"), size = 1.2) +
         labs(title = "Unemployment Entries and Exits Over Time", y = "Count", x = "Date") +
-        scale_color_manual(values = c("Entries" = "blue", "Exits" = "red")) +
+        scale_color_manual(values = c("Entries" = "red", "Exits" = "blue")) +
         theme_minimal(base_size = 14)
       ggplotly(p, tooltip = c("x", "y", "colour")) %>%
         layout(hovermode = "x unified")
@@ -293,7 +295,7 @@ server <- function(input, output, session) {
     if (!is.null(df) && nrow(df) > 0) {
       df$date <- as.Date(df$date)
       p <- ggplot(df, aes(x = date, y = offers)) +
-        geom_line(color = "darkgreen", size = 1.2) +
+        geom_line(color = "green", size = 1.2) +
         labs(title = "Open Job Offers Over Time", y = "Open Positions", x = "Date") +
         theme_minimal(base_size = 14)
       ggplotly(p, tooltip = c("x", "y")) %>%
@@ -344,6 +346,8 @@ server <- function(input, output, session) {
     if (!is.null(df)) df else data.frame()
   }, options = list(scrollX = TRUE, pageLength = 10))
 }
+
+
 
 # Run the application
 shinyApp(ui = ui, server = server)
